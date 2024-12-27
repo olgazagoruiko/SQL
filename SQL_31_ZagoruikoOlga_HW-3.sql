@@ -34,7 +34,23 @@ INNER JOIN employees.salaries AS sal
 ON emp.emp_no=sal.emp_no AND (CURRENT_DATE() BETWEEN sal.from_date AND sal.to_date)
 WHERE TIMESTAMPDIFF(YEAR, emp.birth_date, emp.hire_date)>=55;
 
--- 2-st variant
+-- 2-st variant  without CTE
+SELECT 
+       CASE
+           WHEN TIMESTAMPDIFF(YEAR, emp.birth_date, emp.hire_date) BETWEEN 0 AND 24 THEN "<25"
+           WHEN TIMESTAMPDIFF(YEAR, emp.birth_date, emp.hire_date) BETWEEN 25 AND 44 THEN "25-44"
+           WHEN TIMESTAMPDIFF(YEAR, emp.birth_date, emp.hire_date) BETWEEN 45 AND 54 THEN "45-54"
+           ELSE "55+"
+       END AS AgeCategory,
+       MAX(sal.salary) AS MaxSalaryByCategory
+FROM employees.employees AS emp
+INNER JOIN employees.salaries AS sal
+ON emp.emp_no = sal.emp_no
+WHERE NOW() BETWEEN sal.from_date AND sal.to_date
+GROUP BY AgeCategory
+ORDER BY AgeCategory;
+
+-- 3-st variant with CTE
 WITH cte_agesegment AS (
 SELECT 
        emp.emp_no,
@@ -59,24 +75,24 @@ ORDER BY AgeCategory;
 
 -- Task-2. Покажіть посаду та зарплату працівника з найвищою зарплатою більше не працюючого в
 -- компанії.
-WITH cte_dismissedemployees AS (
-SELECT ttl.emp_no,
-       MAX(ttl.to_date) AS MaxDate
+
+SELECT  ttl.title,
+		MAX(sal.salary) AS MaxSal  
 FROM employees.titles AS ttl
-INNER JOIN employees.dept_emp AS dept
-ON ttl.emp_no=dept.emp_no AND dept.to_date<CURRENT_DATE() AND ttl.to_date<CURRENT_DATE()
-GROUP BY ttl.emp_no)
-SELECT 
-       ttl.title,
-       MAX(sal.salary) AS MaxSal           
-FROM cte_dismissedemployees
-INNER JOIN employees.titles AS ttl
-ON cte_dismissedemployees.emp_no=ttl.emp_no  AND ttl.to_date<CURRENT_DATE()
-INNER JOIN employees.salaries AS sal  
-ON cte_dismissedemployees.emp_no=sal.emp_no  AND sal.to_date<CURRENT_DATE()
+INNER JOIN employees.dept_emp AS dept 
+ON ttl.emp_no=dept.emp_no AND ttl.to_date<CURRENT_DATE() AND dept.to_date<CURRENT_DATE() 
+INNER JOIN employees.salaries AS sal
+ON ttl.emp_no=sal.emp_no AND sal.to_date<CURRENT_DATE()
+INNER JOIN(
+SELECT ttl2.emp_no,
+        MAX(ttl2.to_date) as last_to_date
+FROM employees.titles AS ttl2
+GROUP BY ttl2.emp_no) AS t 
+ON (t.emp_no = ttl.emp_no) AND (t.last_to_date = ttl.to_date)
 GROUP BY ttl.title
 ORDER BY MaxSal  DESC
 LIMIT 1;
+
 
 -- Task-3. Покажіть ТОР-10 діючих співробітників з найбільшою зарплатою.
 SELECT emp.emp_no,
